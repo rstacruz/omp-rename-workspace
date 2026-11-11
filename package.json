@@ -1,0 +1,38 @@
+{
+	"name": "omp-rename-workspace",
+	"version": "0.1.0",
+	"description": "Name the Paseo or Herdr workspace after what the session is working on",
+	"type": "module",
+	"main": "src/rename.ts",
+	"license": "MIT",
+	"author": "Rico Sta. Cruz",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/rstacruz/omp-rename-workspace.git"
+	},
+	"homepage": "https://github.com/rstacruz/omp-rename-workspace#readme",
+	"bugs": {
+		"url": "https://github.com/rstacruz/omp-rename-workspace/issues"
+	},
+	"keywords": ["omp", "omp-plugin", "paseo", "herdr", "workspace"],
+	"engines": {
+		"bun": ">=1.4.0",
+		"omp": ">=18.12.0"
+	},
+	"scripts": {
+		"test": "bun test",
+		"typecheck": "tsc --noEmit -p tsconfig.json",
+		"check": "bun run typecheck && bun test"
+	},
+	"devDependencies": {
+		"@oh-my-pi/pi-coding-agent": "18.18.8",
+		"@types/bun": "^1.4.3",
+		"typescript": "6.0.3"
+	},
+	"omp": {
+		"extensions": ["./src/rename.ts"]
+	},
+	"dependencies": {
+		"@oh-my-pi/omptype": "18.18.8"
+	}
+}
