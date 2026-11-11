@@ -67,25 +67,40 @@ describe("Paseo", () => {
 describe("herdr-app", () => {
 	const doc = (name: string) =>
 		json({ jsonrpc: "2.0", id: 1, result: { value: { spaces: [{ id: "sp9", name: "x" }, { id: "sp1", name, tabs: [] }] } } });
+	const labelled = json({ labels: { "herdr.space": "sp1", "herdr.tab": "tb1" } });
 
 	test("reads the stored name of the terminal's space", async () => {
-		const replies = { "hc get": json({ labels: { "herdr.space": "sp1" } }), "hc connect": doc("SEED: Seed data") };
+		const replies = { "hc get": labelled, "hc connect": doc("SEED: Seed data") };
 		expect(await detectWorkspace(fakeHost({ HC_TERMINAL_ID: "t1" }, replies).host)?.chosenName()).toBe("SEED: Seed data");
 	});
 
 	test("an empty stored name is not chosen", async () => {
-		const replies = { "hc get": json({ labels: { "herdr.space": "sp1" } }), "hc connect": doc("") };
+		const replies = { "hc get": labelled, "hc connect": doc("") };
 		expect(await detectWorkspace(fakeHost({ HC_TERMINAL_ID: "t1" }, replies).host)?.chosenName()).toBeUndefined();
 	});
 
-	test("finds the space through herdr-app ls when the terminal has no label", async () => {
-		const spaces = [{ id: "sp1", tabs: [{ terminals: [{ terminal: "t1" }] }] }];
+	test("renames the terminal's tab", async () => {
+		const { host, calls } = fakeHost({ HC_TERMINAL_ID: "t1" }, { "hc get": labelled, "herdr-app do": ok("") });
+		await detectWorkspace(host)?.renameTab?.("SEED: Seed data");
+		expect(calls.at(-1)).toEqual(["herdr-app", "do", "tab.rename", "--id", "tb1", "--name", "SEED: Seed data"]);
+	});
+
+	test("finds the space and tab through herdr-app ls when the terminal has no labels", async () => {
+		const spaces = [
+			{ id: "sp9", tabs: [{ id: "tb9", terminals: [{ terminal: "t9" }] }] },
+			{ id: "sp1", tabs: [{ id: "tb0", terminals: [] }, { id: "tb1", terminals: [{ terminal: "t1" }] }] },
+		];
 		const { host, calls } = fakeHost(
 			{ HC_TERMINAL_ID: "t1" },
 			{ "hc get": json({ labels: {} }), "herdr-app ls": json({ spaces }), "herdr-app do": ok("") },
 		);
-		await detectWorkspace(host)?.rename("SEED: Seed data");
-		expect(calls.at(-1)).toEqual(["herdr-app", "do", "space.rename", "--id", "sp1", "--name", "SEED: Seed data"]);
+		const workspace = detectWorkspace(host);
+		await workspace?.rename("SEED: Seed data");
+		await workspace?.renameTab?.("SEED: Seed data");
+		expect(calls.slice(-2)).toEqual([
+			["herdr-app", "do", "space.rename", "--id", "sp1", "--name", "SEED: Seed data"],
+			["herdr-app", "do", "tab.rename", "--id", "tb1", "--name", "SEED: Seed data"],
+		]);
 	});
 });
 

@@ -43,7 +43,7 @@ export default function renameWorkspaceExtension(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("rename-workspace", {
-		description: "Name this Paseo or Herdr workspace after the conversation",
+		description: "Name this Paseo or Herdr workspace and the omp session after the conversation",
 		handler: async (args, ctx) => {
 			const workspace = currentWorkspace(ctx);
 			if (!workspace) {
@@ -53,6 +53,8 @@ export default function renameWorkspaceExtension(pi: ExtensionAPI) {
 			try {
 				const name = await nameWorkspace(ctx, workspace, args);
 				settled = true;
+				// omp retitles the terminal whenever the session name changes
+				await Promise.all([pi.setSessionName(name), workspace.renameTab?.(name)]);
 				ctx.ui.notify(`${workspace.host} workspace: ${name}`, "info");
 			} catch (error) {
 				ctx.ui.notify(`/rename-workspace: ${error instanceof Error ? error.message : String(error)}`, "error");

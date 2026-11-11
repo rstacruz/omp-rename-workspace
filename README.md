@@ -27,7 +27,7 @@ Restart omp after installing.
 ## Usage
 
 - **Auto:** after the first turn of a session, if the workspace still has its automatic name, it gets named. One try per session; a workspace someone already named is left alone.
-- **`/rename-workspace [hint]`:** name it now, even if it already has a name. The hint steers the name (`/rename-workspace call it LOADER`).
+- **`/rename-workspace [hint]`:** name it now, even if it already has a name. The hint steers the name (`/rename-workspace call it LOADER`). The omp session, terminal title, and (in herdr-app) the tab get the same name.
 
 Names look like `CODE: Title · ABC-123`, at most 33 characters. A side turn (like `/btw`) picks the name, so nothing is added to the conversation.
 

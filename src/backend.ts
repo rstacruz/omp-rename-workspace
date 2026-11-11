@@ -37,6 +37,8 @@ export interface Workspace {
 	/** Name someone chose; undefined while the host still derives it from the location */
 	chosenName(): Promise<string | undefined>;
 	rename(name: string): Promise<void>;
+	/** Renames the tab holding this session, on hosts with tabs */
+	renameTab?(name: string): Promise<void>;
 }
 
 export interface Host {
@@ -102,7 +104,10 @@ function paseoWorkspace(host: Host, id: string): Workspace {
 const HcTerminal = type({ "labels?": "Record<string, string>" });
 
 const HerdrAppLs = type({
-	spaces: type({ id: "string", tabs: type({ terminals: type({ terminal: "string" }).array() }).array() }).array(),
+	spaces: type({
+		id: "string",
+		tabs: type({ id: "string", terminals: type({ terminal: "string" }).array() }).array(),
+	}).array(),
 });
 
 const DocReply = type({
@@ -110,33 +115,43 @@ const DocReply = type({
 	"error?": { message: "string" },
 });
 
-function herdrAppWorkspace(host: Host, terminal: string): Workspace {
-	let spaceId: Promise<string> | undefined;
+/** The space and tab holding a herdr-app terminal */
+interface HerdrAppPlace {
+	space: string;
+	tab: string;
+}
 
-	const findSpace = async (): Promise<string> => {
+function herdrAppWorkspace(host: Host, terminal: string): Workspace {
+	let placed: Promise<HerdrAppPlace> | undefined;
+
+	const findPlace = async (): Promise<HerdrAppPlace> => {
 		const got = await host.run("hc", ["get", terminal, "--json"]);
 		if (got.code === 0) {
-			const labelled = HcTerminal.assert(JSON.parse(got.stdout)).labels?.["herdr.space"];
-			if (labelled) return labelled;
+			const labels = HcTerminal.assert(JSON.parse(got.stdout)).labels;
+			const space = labels?.["herdr.space"];
+			const tab = labels?.["herdr.tab"];
+			if (space && tab) return { space, tab };
 		}
 		const { spaces } = HerdrAppLs.assert(JSON.parse(await stdoutOf(host, "herdr-app", ["ls"])));
-		const holder = spaces.find(s => s.tabs.some(tab => tab.terminals.some(t => t.terminal === terminal)));
-		if (!holder) throw new Error(`no herdr-app space holds terminal ${terminal}`);
-		return holder.id;
+		for (const space of spaces) {
+			const tab = space.tabs.find(tab => tab.terminals.some(t => t.terminal === terminal));
+			if (tab) return { space: space.id, tab: tab.id };
+		}
+		throw new Error(`no herdr-app space holds terminal ${terminal}`);
 	};
 
-	const space = (): Promise<string> => {
-		spaceId ??= findSpace().catch(error => {
-			spaceId = undefined;
+	const place = (): Promise<HerdrAppPlace> => {
+		placed ??= findPlace().catch(error => {
+			placed = undefined;
 			throw error;
 		});
-		return spaceId;
+		return placed;
 	};
 
 	return {
 		host: "herdr-app",
 		async chosenName() {
-			const id = await space();
+			const id = (await place()).space;
 			// `herdr-app ls` shows the derived name; the stored one is "" until someone names the space
 			const request = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "doc.get", params: { name: "herdr-app" } });
 			const reply = DocReply.assert(JSON.parse(await stdoutOf(host, "hc", ["connect"], `${request}\n`)));
@@ -146,7 +161,10 @@ function herdrAppWorkspace(host: Host, terminal: string): Workspace {
 			return stored.name.trim() || undefined;
 		},
 		async rename(name) {
-			await stdoutOf(host, "herdr-app", ["do", "space.rename", "--id", await space(), "--name", name]);
+			await stdoutOf(host, "herdr-app", ["do", "space.rename", "--id", (await place()).space, "--name", name]);
+		},
+		async renameTab(name) {
+			await stdoutOf(host, "herdr-app", ["do", "tab.rename", "--id", (await place()).tab, "--name", name]);
 		},
 	};
 }
